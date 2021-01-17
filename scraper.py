@@ -88,7 +88,7 @@ def main():
   domain = "http://transcripts.foreverdreaming.org"
   base_list_path = "/viewforum.php?f=177&start="
   base_episode_path = "/viewtopic.php?f=177&t="
-  num_pages = 1 #9
+  num_pages = 9
   results_per_page = 25
   
   data = []

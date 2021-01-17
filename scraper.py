@@ -24,6 +24,31 @@ def get_html(url):
   return html
 
 
+def clean_speaker_string(input):
+  """ Cleans the speaker string """
+  input = re.sub(r'\([a-zA-Z ]*\)', '', input)
+
+  if '<strong><em>' in input and '</em></strong>' in input:
+    return input.split('<strong><em>')[1].split('</em></strong>')[0]
+  
+  if '<strong>' in input and '</strong>' in input:
+    return input.split('<strong>')[1].split('</split>')[0]
+
+  if '<strong>' in input:
+    return input.split('<strong>')[1]
+
+  if '</strong>' in input:
+    return input.split('</strong>')[1]
+
+  if '<em>' in input:
+    return input.split('<em>')[1]
+
+  if '</em>' in input:
+    return input.split('</em>')[1]
+
+  return input
+
+
 def parse_list_page_html(html):
   """ Parses a page for links to HIMYM episode dialogs """
   episode_list = []
@@ -46,7 +71,6 @@ def parse_list_page_html(html):
 
 def parse_episode_page_html(season, episode, html):
   """ Parses a page for HIMYM episode speakers and dialogs """
-  character_names = ["Ted", "Barney", "Robin", "Marshall", "Lily"]
 
   data = []
 
@@ -71,13 +95,18 @@ def parse_episode_page_html(season, episode, html):
       datum['num_words'] = len(dialog_str.split())
 
       speakers_str = line.split('<p>')[1].split(':')[0]
-      if ',' in speakers_str:
+      if ',' in speakers_str and 'and' in speakers_str:
         for speaker in speakers_str.split(','):
-          speaker = speaker.strip()
-          datum['speaker'] = speaker
+          if 'and' in speaker:
+            for sub_speaker in speaker.split('and'):
+              datum['speaker'] = clean_speaker_string(sub_speaker.strip())
+          else:
+            datum['speaker'] = clean_speaker_string(speaker.strip())
+      elif 'and' in speakers_str:
+        for sub_speaker in speakers_str.split('and'):
+              datum['speaker'] = clean_speaker_string(sub_speaker.strip())
       else:
-        speaker = speakers_str.strip()
-        datum['speaker'] = speaker
+        datum['speaker'] = clean_speaker_string(speakers_str.strip())
 
       data.append(datum)
 
@@ -96,15 +125,17 @@ def main():
     offset = i * results_per_page
     list_page_url = domain + base_list_path + str(offset)
     list_page_html = get_html(list_page_url)
-    print("\nParsing episode list results from: " + list_page_url)
+    print("\n[Page %d] Parsing episode list results from: %s" % (i + 1, list_page_url))
     episode_page_info_list = parse_list_page_html(list_page_html)
     print("Got %d episode paths" % len(episode_page_info_list))
 
     for episode_page_info in episode_page_info_list:
       episode_page_url = domain + base_episode_path + episode_page_info['query']
       episode_page_html = get_html(episode_page_url)
-      print("\tParsing episode dialog from: " + episode_page_url)
+      print("\tSeason: %d, Episode: %d" % (episode_page_info['season'], episode_page_info['episode']))
+      print("\t" + episode_page_url)
       episode_data = parse_episode_page_html(episode_page_info['season'], episode_page_info['episode'], episode_page_html)
+      print("\t%d lines" % len(episode_data))
       data.extend(episode_data)
 
   print('\nExporting data to CSV...')
